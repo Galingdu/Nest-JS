@@ -1,0 +1,129 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User{
+  id Int @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  email String @unique
+  hash String
+
+  firstName String?
+  lastName String?
+
+
+  @@map("users")
+
+  bookmarks Bookmark[]
+}
+
+model Bookmark{
+  id Int @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  title String
+  description String?
+  link String
+
+  userId Int
+  user User @relation(fields: [userId], references: [id])
+  @@map("bookmarks")
+}
+
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+
+
+// --- Enums for strict status control ---
+
+enum PaymentMethod {
+  CASH
+  KHQR
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+}
+
+enum CookStatus {
+  NOT_YET_ACCEPTED
+  ACCEPTED
+  COMPLETED
+  CANCELLED
+}
+
+enum TableStatus {
+  AVAILABLE
+  OCCUPIED
+}
+
+// --- Models ---
+
+model Table {
+  id        Int         @id @default(autoincrement())
+  table_no  String      @unique // e.g., "A1", "VIP-1"
+  status    TableStatus @default(AVAILABLE)
+  orders    Order[]
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+model Product {
+  id           Int         @id @default(autoincrement())
+  category_id  Int
+  category     Category    @relation(fields: [category_id], references: [id])
+  name         String
+  price        Decimal     @db.Decimal(10, 2)
+  is_available Boolean     @default(true) // Staff can toggle this for Stock Management
+  order_items  OrderItem[]
+}
+
+model Order {
+  id             Int           @id @default(autoincrement())
+  table_id       Int
+  table          Table         @relation(fields: [table_id], references: [id])
+  total_price    Decimal       @db.Decimal(10, 2)
+  payment_method PaymentMethod
+  payment_status PaymentStatus @default(UNPAID)
+  cook_status    CookStatus    @default(NOT_YET_ACCEPTED)
+  created_at     DateTime      @default(now())
+  
+  order_items    OrderItem[]
+  payment_detail PaymentDetail? // Only created if KHQR is used
+}
+
+model OrderItem {
+  id             Int     @id @default(autoincrement())
+  order_id       Int
+  order          Order   @relation(fields: [order_id], references: [id])
+  product_id     Int
+  product        Product @relation(fields: [product_id], references: [id])
+  quantity       Int
+  price_at_order Decimal @db.Decimal(10, 2) // Security: Locks price at time of order
+}
+
+model PaymentDetail {
+  id                      Int      @id @default(autoincrement())
+  order_id                Int      @unique
+  order                   Order    @relation(fields: [order_id], references: [id])
+  external_transaction_id String?  // Bakong MD5 Hash / Ref
+  currency                String   @default("USD")
+  confirmed_at            DateTime @default(now())
+}
+
